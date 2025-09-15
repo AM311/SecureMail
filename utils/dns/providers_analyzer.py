@@ -30,23 +30,26 @@ def analyze_dns_results(_domain_statuses: list[DomainStatus]):
         for _rr in _domain_status.dns_entries.get_rrs_ns(_domain):
             _ns = _rr.value
 
-            # If more than 1 IPs are available, arbitrarily keeps the first one
-            _ip = _domain_status.dns_entries.get_rrs_a(_ns).get(0).value
-            _as = _domain_status.dns_entries.get_rrs_a(_ns).get(0).autonomous_system
+            try:
+                # If more than 1 IPs are available, arbitrarily keeps the first one
+                _ip = _domain_status.dns_entries.get_rrs_a(_ns).get(0).value
+                _as = _domain_status.dns_entries.get_rrs_a(_ns).get(0).autonomous_system
 
-            # If a CNAME entry exists, keeps the value of this one
-            _rr_list_cname = _domain_status.dns_entries.get_rrs_cname(_ns)
+                # If a CNAME entry exists, keeps the value of this one
+                _rr_list_cname = _domain_status.dns_entries.get_rrs_cname(_ns)
 
-            if not _rr_list_cname.is_empty():
-                _ns = _rr_list_cname.get(0).value
+                if not _rr_list_cname.is_empty():
+                    _ns = _rr_list_cname.get(0).value
 
-            _servers_ns.append({_ns: {'ip': _ip, 'as': _as}})
+                _servers_ns.append({_ns: {'ip': _ip, 'as': _as}})
 
-            # ---
+                # ---
 
-            _org_domain = get_organizational_domain(_ns)
-            _providers_ns.add(_org_domain)
-            _as_ns.add(_as['asn'])
+                _org_domain = get_organizational_domain(_ns)
+                _providers_ns.add(_org_domain)
+                _as_ns.add(_as['asn'])
+            except Exception:
+                continue
 
         _domain_data_ns['servers'] = _servers_ns
         _domain_data_ns['providers'] = list(_providers_ns)
@@ -65,21 +68,24 @@ def analyze_dns_results(_domain_statuses: list[DomainStatus]):
         for _rr in _domain_status.dns_entries.get_rrs_mx(_domain):
             _mx = _rr.value
 
-            # If more than 1 IPs are available, arbitrarily keeps the first one
-            _ip = _domain_status.dns_entries.get_rrs_a(_mx).get(0).value
-            _as = _domain_status.dns_entries.get_rrs_a(_mx).get(0).autonomous_system
+            try:
+                # If more than 1 IPs are available, arbitrarily keeps the first one
+                _ip = _domain_status.dns_entries.get_rrs_a(_mx).get(0).value
+                _as = _domain_status.dns_entries.get_rrs_a(_mx).get(0).autonomous_system
 
-            # If a CNAME entry exists, keeps the value of this one
-            _rr_list_cname = _domain_status.dns_entries.get_rrs_cname(_mx)
+                # If a CNAME entry exists, keeps the value of this one
+                _rr_list_cname = _domain_status.dns_entries.get_rrs_cname(_mx)
 
-            if not _rr_list_cname.is_empty():
-                _mx = _rr_list_cname.get(0).value
+                if not _rr_list_cname.is_empty():
+                    _mx = _rr_list_cname.get(0).value
 
-            _servers_mx.append({_mx: {'ip': _ip, 'as': _as}})
+                _servers_mx.append({_mx: {'ip': _ip, 'as': _as}})
 
-            _org_domain = get_organizational_domain(_mx)
-            _providers_mx.add(_org_domain)
-            _as_mx.add(_as['asn'])
+                _org_domain = get_organizational_domain(_mx)
+                _providers_mx.add(_org_domain)
+                _as_mx.add(_as['asn'])
+            except Exception:
+                continue
 
         _domain_data_mx['servers'] = _servers_mx
         _domain_data_mx['providers'] = list(_providers_mx)
@@ -102,20 +108,23 @@ def analyze_dns_results(_domain_statuses: list[DomainStatus]):
             for _rr in _domain_status.dns_entries.get_rrs_a(_mtasts_domain):
                 _server = _mtasts_domain
 
-                _ip = _rr.value
-                _as = _rr.autonomous_system
+                try:
+                    _ip = _rr.value
+                    _as = _rr.autonomous_system
 
-                # If a CNAME entry exists, keeps the value of this one
-                _rr_list_cname = _domain_status.dns_entries.get_rrs_cname(_server)
+                    # If a CNAME entry exists, keeps the value of this one
+                    _rr_list_cname = _domain_status.dns_entries.get_rrs_cname(_server)
 
-                if not _rr_list_cname.is_empty():
-                    _server = _rr_list_cname.get(0).value
+                    if not _rr_list_cname.is_empty():
+                        _server = _rr_list_cname.get(0).value
 
-                _servers_web.append({_server: {'ip': _ip, 'as': _as}})
+                    _servers_web.append({_server: {'ip': _ip, 'as': _as}})
 
-                _org_domain = get_organizational_domain(_server)
-                _providers_web.add(_org_domain)
-                _as_web.add(_as['asn'])
+                    _org_domain = get_organizational_domain(_server)
+                    _providers_web.add(_org_domain)
+                    _as_web.add(_as['asn'])
+                except Exception:
+                    continue
 
         _domain_data_web['servers'] = _servers_web
         _domain_data_web['providers'] = list(_providers_web)

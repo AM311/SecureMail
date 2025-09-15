@@ -1,7 +1,7 @@
 import pandas as pd
 
 _public_suffixes_src = pd.read_csv(
-    "../../data/public_suffixes_agg.csv", delimiter=';')
+    "data/public_suffixes_agg.csv", delimiter=';')
 _public_suffixes = _public_suffixes_src.iloc[:, 0].tolist()
 
 

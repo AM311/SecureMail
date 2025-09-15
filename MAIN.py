@@ -16,7 +16,7 @@ import concurrent.futures
 _prefix = ""
 
 if __name__ == "__main__":
-    csv_file = f"{_prefix}data/src/DOMAINS_IT.CSV"
+    csv_file = f"{_prefix}data/src/DOMAINS_TEST2.csv"
 
     _source = pd.read_csv(csv_file, delimiter=';', header=0)
 
