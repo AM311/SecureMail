@@ -2,6 +2,7 @@ import csv
 import gzip
 import ipaddress
 import shutil
+from pathlib import Path
 
 import requests
 from sortedcontainers import SortedDict
@@ -34,7 +35,6 @@ def get_as(_ip, _download_new=False):
             print(f"Error while decompressing file: {e}")
 
     def load_as_from_file():
-        #_as_data = []
         as_data_dict = SortedDict()
 
         try:
@@ -78,8 +78,9 @@ def get_as(_ip, _download_new=False):
 
     try:
         if _download_new or _ASN_DATA_CACHE is None:
-            if _download_new:
+            if _download_new or not Path(_filepath).exists():
                 download_as_dataset()
+
             _ASN_DATA_CACHE = load_as_from_file()
 
         _res = search_as(_ip, _ASN_DATA_CACHE)
