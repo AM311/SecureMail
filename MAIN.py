@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     ################
 
-    with tqdm(desc="PROGRESS", total=6, colour='blue', ncols=100, position=0) as total_progress:
+    with tqdm(desc="PROGRESS", total=5, colour='blue', ncols=100, position=0) as total_progress:
         _res = pd.DataFrame(
             columns=['Domain', 'GeneralErrors', 'SPF Enabled', 'SPF Default Qualifier', 'SPF Use Include',
                      'SPF Use Redirect', 'SPF Errors', 'SPF Warnings', 'DKIM Enabled', 'DKIM nPolicies', 'DKIM Warning',
