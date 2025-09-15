@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
         _autonomous_systems, _providers = analyze_dns_results(_domain_statuses)
 
-        _providers.to_csv('data/OUT/Providers.csv', index=False)
+        _providers.to_csv(f"{_prefix}data/OUT/Providers.csv", index=False)
 
         with open(f"{_prefix}data/OUT/AutonomousSystems.json", "w") as file:
             json.dump(_autonomous_systems, fp=file, indent=2)
@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
         _mx_statuses = analyze_mx_servers(_domain_statuses)
 
-        _mx_statuses.to_csv('data/OUT/MXs.csv', index=False)
+        _mx_statuses.to_csv(f"{_prefix}data/OUT/MXs.csv", index=False)
 
         total_progress.update()
 
@@ -137,6 +137,6 @@ if __name__ == "__main__":
 
         _dkim_statuses = analyze_dkim_records(_domain_statuses)
 
-        _dkim_statuses.to_csv('data/OUT/DKIM.csv', index=False)
+        _dkim_statuses.to_csv(f"{_prefix}data/OUT/DKIM.csv", index=False)
 
         total_progress.update()
