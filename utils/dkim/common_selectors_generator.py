@@ -5,8 +5,7 @@ def generate_selectors(_domain):
         # ---
 
         _common_words = ['default', 'dkim', 'google', 'selektor', 'selector', 'selector1', 's1024', 's2048', 's512',
-                         's1',
-                         'postout', 'alpha', 'beta', 'gamma', 'test', 'mandilla', 'mailjet', 'mail', 'mail2']
+                         's1', 'postout', 'alpha', 'beta', 'gamma', 'test', 'mandilla', 'mailjet', 'mail', 'mail2']
 
         _selectors.extend(_common_words)
 

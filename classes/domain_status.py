@@ -243,9 +243,9 @@ class DomainStatus:
 
                 for _dict in self.dns_entries.get_rrs_dkim():
                     for _domain, _rrs in _dict.items():
-                        if _rrs.size() > 1:
-                            _err = "Multiple DKIM RRs found for the same selector"
-                            continue
+                        #if _rrs.size() > 1:
+                        #    _err = "Multiple DKIM RRs found for the same selector"
+                        #    continue
 
                         if _rrs.has_invalid_rr():
                             _err = f"Invalid DKIM RR: {_rrs.get(0).get_validation_error()}"
@@ -457,7 +457,7 @@ class DomainStatus:
             #print(f"Domain: {self.domain} -- STARTTLS finished")
             analyze_spf()
             #print(f"Domain: {self.domain} -- SPF finished")
-            analyze_dkim()  # todo TOLTO per il momento -- MOLTO LENTO
+            analyze_dkim()
             #print(f"Domain: {self.domain} -- DKIM finished")
             analyze_dmarc()
             #print(f"Domain: {self.domain} -- DMARC finished")
