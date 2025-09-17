@@ -39,6 +39,7 @@ def analyze_dkim_records(_domain_statuses: list[DomainStatus]):
                     for _rr in _rrs:
                         _policy_data['domain'] = _domain_status.domain
                         _policy_data['rr_domain'] = _domain
+                        _policy_data['selector'] = _domain.split('.')[0]
                         _policy_data['multiple_rrs'] = (None if _multiple_rr == 1 else _multiple_rr)
 
                         _policy = _rr.policy
