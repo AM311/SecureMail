@@ -16,9 +16,9 @@ import concurrent.futures
 _prefix = ""
 
 if __name__ == "__main__":
-    csv_file = f"{_prefix}data/src/DOMAINS_TEST2.csv"
+    csv_file = f"{_prefix}data/src/DOMAINS_DE.csv"
 
-    _source = pd.read_csv(csv_file, delimiter=';', header=0)
+    _source = pd.read_csv(csv_file, delimiter=';', header=None)
 
     _mails = _source.iloc[:, 0].tolist()
     _domains = get_unique_domains(_mails)
