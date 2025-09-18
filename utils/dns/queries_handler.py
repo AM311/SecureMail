@@ -8,6 +8,8 @@ from classes.dns.rr_list import RR_List
 from utils.dkim.common_selectors_generator import generate_selectors
 from utils.mail.organizational_domains import get_organizational_domain
 
+_resolver = dns.resolver.Resolver()
+_resolver.nameservers = ['8.8.8.8', '8.8.4.4']
 
 # todo GESTIRE QUI DIRETTAMENTE MTASTS (e altri)
 
@@ -20,7 +22,7 @@ def query(_domain, _record_type="A"):
                 _current_domain = '.'.join(_domain_parts)
 
                 try:
-                    _answers = dns.resolver.resolve(_current_domain, _record_type)
+                    _answers = _resolver.resolve(_current_domain, _record_type)
 
                     _rr_list = RR_List(_current_domain)
                     for _rr in _answers:
@@ -31,7 +33,7 @@ def query(_domain, _record_type="A"):
 
             _current_domain = '.'.join(_domain_parts)
 
-            _answers = dns.resolver.resolve(_current_domain, _record_type)
+            _answers = _resolver.resolve(_current_domain, _record_type)
 
             _rr_list = RR_List(_current_domain)
             for _rr in _answers:
@@ -39,7 +41,7 @@ def query(_domain, _record_type="A"):
         elif _record_type == 'MTASTS':
             _domain = f"_mta-sts.{_domain}"
 
-            _answers = dns.resolver.resolve(_domain, "TXT")
+            _answers = _resolver.resolve(_domain, "TXT")
 
             _ok_rrs = [_rr for _rr in _answers if _rr.to_text().startswith("\"v=STSv1;")]
 
@@ -52,7 +54,7 @@ def query(_domain, _record_type="A"):
         elif _record_type == 'TLSRPT':
             _domain = f"_smtp._tls.{_domain}"
 
-            _answers = dns.resolver.resolve(_domain, "TXT")
+            _answers = _resolver.resolve(_domain, "TXT")
 
             _ok_rrs = [_rr for _rr in _answers if _rr.to_text().startswith("\"v=TLSRPTv1;")]
 
@@ -66,7 +68,7 @@ def query(_domain, _record_type="A"):
             _done = False
 
             try:
-                _answers_spf = dns.resolver.resolve(_domain, "SPF")
+                _answers_spf = _resolver.resolve(_domain, "SPF")
 
                 _ok_rrs = [_rr for _rr in _answers_spf if _rr.to_text().startswith("\"v=spf1")]
 
@@ -80,7 +82,7 @@ def query(_domain, _record_type="A"):
                 pass
 
             if not _done:
-                _answers_txt = dns.resolver.resolve(_domain, "TXT")
+                _answers_txt = _resolver.resolve(_domain, "TXT")
 
                 _ok_rrs = [_rr for _rr in _answers_txt if _rr.to_text().startswith("\"v=spf1")]
 
@@ -95,7 +97,7 @@ def query(_domain, _record_type="A"):
                 _query_domain = f"{_selector}._domainkey.{_domain}"
 
                 try:
-                    _answers = dns.resolver.resolve(_query_domain, "TXT")
+                    _answers = _resolver.resolve(_query_domain, "TXT")
 
                     _ok_rrs = [_rr for _rr in _answers if
                                (_rr.to_text().startswith("\"v=DKIM1;") or ("p=" in _rr.to_text()))]
@@ -141,7 +143,7 @@ def query(_domain, _record_type="A"):
             _current_domain = f"{_dmarc_prefix}{_domain}"
 
             try:
-                _answers = dns.resolver.resolve(_current_domain, 'TXT')
+                _answers = _resolver.resolve(_current_domain, 'TXT')
 
                 _ok_rrs = [_rr for _rr in _answers if _rr.to_text().startswith("\"v=")]
 
@@ -160,7 +162,7 @@ def query(_domain, _record_type="A"):
 
             _current_domain = f"{_dmarc_prefix}{get_organizational_domain(_domain)}"
 
-            _answers = dns.resolver.resolve(_current_domain, 'TXT')
+            _answers = _resolver.resolve(_current_domain, 'TXT')
 
             _ok_rrs = [_rr for _rr in _answers if _rr.to_text().startswith("\"v=")]
 
@@ -173,7 +175,7 @@ def query(_domain, _record_type="A"):
         else:
             _rr_list = RR_List(_domain)
 
-            _answers = dns.resolver.resolve(_domain, _record_type)
+            _answers = _resolver.resolve(_domain, _record_type)
 
             if _record_type == 'MX':
                 for _rr in _answers:
@@ -223,7 +225,7 @@ def query_dmarc_delegation(_source_domain, _report_domain):
     _domain = f"{_source_domain}._report._dmarc.{_report_domain}"
 
     try:
-        _answers = dns.resolver.resolve(_domain, "TXT")
+        _answers = _resolver.resolve(_domain, "TXT")
 
         _rr_list = RR_List(_domain)
         for _rr in _answers:
