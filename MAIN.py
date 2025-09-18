@@ -16,7 +16,7 @@ import concurrent.futures
 _prefix = ""
 
 if __name__ == "__main__":
-    csv_file = f"{_prefix}data/src/DOMAINS_DE.csv"
+    csv_file = f"{_prefix}data/src/DOMAINS_TEST2.csv"
 
     _source = pd.read_csv(csv_file, delimiter=';', header=None)
 
@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     ################
 
-    with tqdm(desc="PROGRESS", total=5, colour='blue', ncols=100, position=0) as total_progress:
+    with tqdm(desc="PROGRESS", total=6, colour='blue', ncols=100, position=0) as total_progress:
         _res = pd.DataFrame(
             columns=['Domain', 'GeneralErrors', 'SPF Enabled', 'SPF Default Qualifier', 'SPF Use Include',
                      'SPF Use Redirect', 'SPF Errors', 'SPF Warnings', 'DKIM Enabled', 'DKIM nPolicies', 'DKIM Warning',
@@ -44,9 +44,10 @@ if __name__ == "__main__":
         def process_domain(_domain):
             print(f"\r\nBEGIN: {_domain}\r\n")
             _domain_status = DomainStatus(_domain)
-            _domain_statuses.append(_domain_status)
             _domain_status.analyze_domain()
-            _policies.append({_domain: _domain_status.get_policies()})
+
+            _policies = {_domain: _domain_status.get_policies()}
+
             print(f"\r\nEND: {_domain}\r\n")
 
             _row = [[_domain, _domain_status.errorCode, _domain_status.use_spf, _domain_status.spf_policy_rule,
@@ -61,17 +62,26 @@ if __name__ == "__main__":
                      _domain_status.use_tlsrpt, _domain_status.errorCode_tlsrpt, _domain_status.use_mtasts,
                      _domain_status.mtasts_policy_rule, _domain_status.errorCode_mtasts, _domain_status.use_dnssec]]
 
-            return _row
+            return _row, _domain_status, _policies
+
 
         _rows = []
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
             with tqdm(total=len(_domains), desc="Domains Analysis", ncols=100, colour='green', position=1,
                       leave=False) as pbar:
                 _futures = {executor.submit(process_domain, _domain): _domain for _domain in _domains}
 
-                for _row in concurrent.futures.as_completed(_futures):
-                    _rows.extend(_row.result())
+                for _future in concurrent.futures.as_completed(_futures):
+                    try:
+                        _row, _domain_status, _policy = _future.result()
+
+                        _domain_statuses.append(_domain_status)
+                        _policies.append(_policy)
+                        _rows.extend(_row)
+                    except Exception as e:
+                        print(f"Errore durante l'elaborazione del dominio: {e}")
+
                     pbar.update()
 
         #_rows = []
