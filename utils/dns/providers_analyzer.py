@@ -13,6 +13,8 @@ from utils.mail.organizational_domains import get_organizational_domain
 
 # todo TQDM
 
+#todo GESTIRE CASI IN CUI NON CI SONO RISULTATI PER IL DOMINIO
+
 def analyze_dns_results(_domain_statuses: list[DomainStatus]):
     _servers_providers_as = {}
 
@@ -94,8 +96,6 @@ def analyze_dns_results(_domain_statuses: list[DomainStatus]):
         _domain_data['MX'] = _domain_data_mx
 
         # === A (Policies MTA-STS) ===
-
-        # todo CAPIRE COME FARE
 
         _domain_data_web = {}
 
