@@ -28,6 +28,11 @@ class RR:
     def __str__(self):
         return f"{self.domain} {self.type} {self.value}"
 
+    def __eq__(self, __other):
+        if not isinstance(__other, RR):
+            return NotImplemented
+        return self.value == __other.value
+
     def to_dict(self):
         return {
             # "domain": self.domain,

@@ -14,6 +14,7 @@ def analyze_ips(_domain_statuses: list[DomainStatus]):
         _ip_count = defaultdict(lambda: {'domains': []})
 
         for _domain_status in tqdm(_domain_statuses, desc="IPs Mapping", ncols=100, position=2, leave=False):
+            print(f"BEGIN: {_domain_status.domain}")
             if _domain_status.use_spf:
                 _spf_policy = _domain_status.dns_entries.get_rrs_spf(_domain_status.domain).get(0).policy
 
@@ -26,6 +27,8 @@ def analyze_ips(_domain_statuses: list[DomainStatus]):
                         _ip = str(_ip)
                         if _domain_status.domain not in _ip_count[_ip]['domains']:
                             _ip_count[_ip]['domains'].append(_domain_status.domain)
+
+            print(f"END: {_domain_status.domain}")
 
         progress.update()
 

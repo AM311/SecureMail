@@ -55,7 +55,9 @@ class DomainRRs:
         if _domain not in self.rrs[_type]:
             self.rrs[_type][_domain] = _rrs
         else:
-            self.rrs[_type][_domain].extend(_rrs)
+            _existing_rrs = self.rrs[_type][_domain].rrs
+            _new_rrs = [rr for rr in _rrs.rrs if rr not in _existing_rrs]
+            self.rrs[_type][_domain].extend(_new_rrs)
 
     # ===== GETTERS =====
 
@@ -165,6 +167,7 @@ class DomainRRs:
     # todo SE ERRORE QUI, ALLORA AGGIUNGE VALIDATION_ERROR A POLICY BASE: Unable to retrieve some included or redirected policies.
     def query_spf(self):
         def get_spf_policy_recursively(_cur_domain, level=0):
+
             for _rr in self.get_rrs_spf(_cur_domain):
                 _inc = _rr.policy.get_includes()
                 _red = _rr.policy.get_redirects()

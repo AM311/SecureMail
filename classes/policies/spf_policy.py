@@ -206,6 +206,11 @@ class SPF_Policy:
         self.validation_error = validate_policy()
         retrieve_all_ips()
 
+    def __eq__(self, __other):
+        if not isinstance(__other, SPF_Policy):
+            return NotImplemented
+        return (self.domain == __other.domain) and (self.raw_text == __other.raw_text)
+
     # =====
 
     # todo POLICY INCLUSA NON VALIDA
@@ -246,7 +251,7 @@ class SPF_Policy:
     def get_default_policy(self):
         # INCLUDES (+ --> +)
         for _incl in [_p for _p in self.included_policies if (_p['qualifier'] == '+')]:
-            _incl_policy =_incl['policy']
+            _incl_policy = _incl['policy']
 
             _incl_qualifier = _incl_policy.get_default_policy()
 
@@ -266,10 +271,14 @@ class SPF_Policy:
     # =====
 
     def add_included_policy(self, _qualifier, _included_policy):
-        self.included_policies.append({'qualifier': _qualifier, 'policy': _included_policy})
+        _new_entry = {'qualifier': _qualifier, 'policy': _included_policy}
+
+        if _new_entry not in self.included_policies:
+            self.included_policies.append(_new_entry)
 
     def add_redirected_policy(self, _redirected_policy):
-        self.redirected_policies.append(_redirected_policy)
+        if _redirected_policy not in self.redirected_policies:
+            self.redirected_policies.append(_redirected_policy)
 
     def get_included_policies(self):
         return self.included_policies
@@ -288,7 +297,8 @@ class SPF_Policy:
             _ips6 = self.ipv6
 
         if _recursive:
-            for _p in [_pp for _pp in self.included_policies if ((_qualifier is None or _pp['qualifier'] == _qualifier) and not _pp['policy'].is_invalid())]:
+            for _p in [_pp for _pp in self.included_policies if
+                       ((_qualifier is None or _pp['qualifier'] == _qualifier) and not _pp['policy'].is_invalid())]:
                 _sub_ips4, _sub_ips6 = _p['policy'].get_ips(_qualifier, _recursive)
                 _ips4 += _sub_ips4
                 _ips6 += _sub_ips6
@@ -300,7 +310,7 @@ class SPF_Policy:
 
         return _ips4, _ips6
 
-    def check_overlaps(self, _qualifier = None, _recursive=True):
+    def check_overlaps(self, _qualifier=None, _recursive=True):
         _ips4, _ips6 = self.get_ips(_qualifier, _recursive)
 
         for _i, _ip1 in enumerate(_ips4):
@@ -332,7 +342,7 @@ class SPF_Policy:
         return {
             "version": self.version,
             "terms": self.terms,
-            #"ipv4": list(map(lambda x : str(x), self.ipv4)),
-            #"ipv6": list(map(lambda x : str(x), self.ipv6)),
+            # "ipv4": list(map(lambda x : str(x), self.ipv4)),
+            # "ipv6": list(map(lambda x : str(x), self.ipv6)),
             "validation_error": self.validation_error,
         }
