@@ -29,7 +29,7 @@ def analyze_dns_results(_domain_statuses: list[DomainStatus]):
         _providers_ns = set()
         _as_ns = set()
 
-        for _rr in _domain_status.dns_entries.get_rrs_ns(_domain):
+        for _rr in _domain_status.dns_entries.get_rrs_ns():
             _ns = _rr.value
 
             try:
@@ -284,9 +284,12 @@ def analyze_dns_results(_domain_statuses: list[DomainStatus]):
     for _domain_status in tqdm(_domain_statuses, desc="PROVIDERS Analysis", ncols=100, position=1, leave=False):
         _domain = _domain_status.domain
 
-        _domain_providers_servers = get_servers_providers_as(_domain)
+        try:
+            _domain_providers_servers = get_servers_providers_as(_domain)
 
-        _servers_providers_as[_domain] = _domain_providers_servers
+            _servers_providers_as[_domain] = _domain_providers_servers
+        except Exception:
+            continue
 
     _status = analyze_providers_as(_servers_providers_as)
     _status_df = pd.DataFrame(_status).T
