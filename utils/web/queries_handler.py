@@ -41,16 +41,16 @@ def get_mtasts_policy(_domain):
 
             # ---
 
-            _response = requests.get(_url, headers=_headers, timeout=10, verify=True)
+            _response = requests.get(_url, headers=_headers, allow_redirects=False, timeout=10, verify=True)
             if _response.status_code == 200:
                 _response = _response.text
             else:
-                _status = TLS_Status_Entry(_domain, 443, _is_reachable=True, _is_enabled=False, _cert=None, _error=f"Invalid HTTP Response status code: {_response.status_code}")
+                _status = TLS_Status_Entry(_domain, 443, _is_reachable=True, _is_enabled=True, _cert=_cert, _error=f"Invalid HTTP Response status code: {_response.status_code}")
 
         except requests.exceptions.SSLError as ssl_error:
             _status = TLS_Status_Entry(_domain, 443, _is_reachable=True, _is_enabled= False, _cert=None, _error=f"SSL Error: {ssl_error}")
         except requests.RequestException as e:
-            _status = TLS_Status_Entry(_domain, 443, _is_reachable=True, _is_enabled=False, _cert=None, _error=e)
+            _status = TLS_Status_Entry(_domain, 443, _is_reachable=False, _is_enabled=False, _cert=None, _error=f"Request Exception: {e}")
 
         return _response, _status
 
