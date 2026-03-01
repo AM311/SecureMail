@@ -293,8 +293,8 @@ class SPF_Policy:
             _ips4 = [_ip for _ip in self.ipv4 if _ip['qualifier'] == _qualifier]
             _ips6 = [_ip for _ip in self.ipv6 if _ip['qualifier'] == _qualifier]
         else:
-            _ips4 = self.ipv4
-            _ips6 = self.ipv6
+            _ips4 = self.ipv4.copy()           #todo POTENZIALE PROBLEMA (risolto con copy)
+            _ips6 = self.ipv6.copy()
 
         if _recursive:
             for _p in [_pp for _pp in self.included_policies if
