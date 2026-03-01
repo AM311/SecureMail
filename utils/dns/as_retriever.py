@@ -1,90 +1,143 @@
+# as_retriever.py
 import csv
 import gzip
 import ipaddress
 import shutil
 from pathlib import Path
-
-import requests
 from sortedcontainers import SortedDict
 
+
 _ASN_DATA_CACHE = None
+_ASN_FILEPATH = 'data/ip2asn-v4.tsv'
+_ASN_URL = 'https://iptoasn.com/data/ip2asn-v4.tsv.gz'
 
 
-def get_as(_ip, _download_new=False):
-    _filepath = 'data/ip2asn-v4.tsv'
-    global _ASN_DATA_CACHE
-
-    def download_as_dataset():
-        _url = 'https://iptoasn.com/data/ip2asn-v4.tsv.gz'
-        try:
-            _response = requests.get(_url, stream=True)
-            _response.raise_for_status()
-
-            # Saves .gz file
-            with open(_filepath + ".gz", 'wb') as _file:
-                shutil.copyfileobj(_response.raw, _file)
-
-            # Decompress .gz into .tsv
-            with gzip.open(_filepath + ".gz", 'rb') as _file_in:
-                with open(_filepath, 'wb') as _file_out:
-                    shutil.copyfileobj(_file_in, _file_out)
-
-        except requests.exceptions.RequestException as e:
-            print(f"Error while downloading file: {e}")
-        except Exception as e:
-            print(f"Error while decompressing file: {e}")
-
-    def load_as_from_file():
-        as_data_dict = SortedDict()
-
-        try:
-            with open(_filepath, newline='', encoding='utf-8') as f:
-                _reader = csv.reader(f, delimiter='\t')
-
-                for _row in _reader:
-                    if len(_row) >= 5:
-                        _ip_start = ipaddress.ip_address(_row[0])
-                        _ip_end = ipaddress.ip_address(_row[1])
-                        _asn = _row[2]
-                        _country = _row[3]
-                        _organization = _row[4]
-
-                        #_as_data.append((_ip_start, _ip_end, _asn, _country, _organization))
-                        as_data_dict[_ip_start] = {
-                            'ip_end': _ip_end,
-                            'asn': _asn,
-                            'org': _organization,
-                            'country': _country
-                        }
-                    else:
-                        raise ValueError('Invalid row')
-        except Exception as e:
-            print(f"Error: {e}")
-            return None
-        return as_data_dict
-
-    def search_as(_ip, _asn_data):
-        _ip = ipaddress.ip_network(_ip, strict=False).network_address if '/' in _ip else ipaddress.ip_address(_ip)
-
-        for _ip_start in _asn_data.irange(minimum=None, maximum=_ip):
-            _entry = _asn_data[_ip_start]
-            _ip_end = _entry['ip_end']
-            if _ip_start <= _ip <= _ip_end:  # Confronta gli oggetti IPAddress
-                return {'asn': _entry['asn'], 'org': _entry['org']}
-
-        return None
-
-    # =====
+# --------------------------------------------------------
+# 1) Caricamento e caching del database ASN
+# --------------------------------------------------------
+def _download_asn_dataset():
+    import requests
 
     try:
-        if _download_new or _ASN_DATA_CACHE is None:
-            if _download_new or not Path(_filepath).exists():
-                download_as_dataset()
+        response = requests.get(_ASN_URL, stream=True)
+        response.raise_for_status()
 
-            _ASN_DATA_CACHE = load_as_from_file()
+        with open(_ASN_FILEPATH + ".gz", 'wb') as f:
+            shutil.copyfileobj(response.raw, f)
 
-        _res = search_as(_ip, _ASN_DATA_CACHE)
+        with gzip.open(_ASN_FILEPATH + ".gz", 'rb') as f_in:
+            with open(_ASN_FILEPATH, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
 
-        return _res
     except Exception as e:
-        print(f"Error while managing dataset file: {e}")
+        print(f"[ASN DOWNLOAD ERROR] {e}")
+
+
+def _load_asn_table():
+    table = SortedDict()
+
+    try:
+        with open(_ASN_FILEPATH, newline='', encoding='utf-8') as f:
+            reader = csv.reader(f, delimiter="\t")
+
+            for row in reader:
+                if len(row) < 5:
+                    continue
+
+                ip_start = ipaddress.ip_address(row[0])
+                ip_end = ipaddress.ip_address(row[1])
+
+                table[ip_start] = {
+                    "ip_end": ip_end,
+                    "asn": row[2],
+                    "country": row[3],
+                    "org": row[4]
+                }
+
+    except Exception as e:
+        print(f"[ASN LOAD ERROR] {e}")
+        return None
+
+    return table
+
+
+def load_asn_data(force_reload=False):
+    global _ASN_DATA_CACHE
+
+    if force_reload or _ASN_DATA_CACHE is None:
+        if force_reload or not Path(_ASN_FILEPATH).exists():
+            _download_asn_dataset()
+
+        _ASN_DATA_CACHE = _load_asn_table()
+
+    return _ASN_DATA_CACHE
+
+
+# --------------------------------------------------------
+# 2) Lookup ASN di un singolo IP
+# --------------------------------------------------------
+def get_as(ip):
+    """
+    Ritorna {asn, org, country} per un IP.
+    """
+    table = load_asn_data()
+    if not table:
+        return None
+
+    # Normalizza input
+    if isinstance(ip, (ipaddress.IPv4Address, ipaddress.IPv6Address)):
+        ip_obj = ip
+    else:
+        ip = str(ip)
+        ip_obj = ipaddress.ip_address(ip)
+
+    # Trova il massimo ip_start ≤ ip
+    for ip_start in table.irange(maximum=ip_obj):
+        entry = table[ip_start]
+        if ip_start <= ip_obj <= entry["ip_end"]:
+            return {
+                "asn": entry["asn"],
+                "org": entry["org"],
+                "country": entry["country"]
+            }
+
+    return None
+
+
+# --------------------------------------------------------
+# 3) Lookup ASN per una SUBNET (nuova funzione)
+# --------------------------------------------------------
+def get_as_ranges_for_subnet(ip_start, ip_end):
+    """
+    Trova tutti gli AS che intersecano la subnet [ip_start, ip_end].
+    Return: lista di intervalli ASN.
+    """
+    table = load_asn_data()
+    if not table:
+        return []
+
+    if isinstance(ip_start, str):
+        ip_start = ipaddress.ip_address(ip_start)
+    if isinstance(ip_end, str):
+        ip_end = ipaddress.ip_address(ip_end)
+
+    results = []
+
+    for as_ip_start in table.irange(maximum=ip_end):
+        entry = table[as_ip_start]
+        as_ip_end = entry["ip_end"]
+
+        # Intersezione intervalli
+        if as_ip_start <= ip_end and as_ip_end >= ip_start:
+            results.append({
+                "ip_start": as_ip_start,
+                "ip_end": as_ip_end,
+                "asn": entry["asn"],
+                "org": entry["org"],
+                "country": entry["country"],
+            })
+
+        if as_ip_start > ip_end:
+            break
+
+    return results
