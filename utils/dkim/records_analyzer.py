@@ -9,8 +9,7 @@ from classes.domain_status import DomainStatus
 def analyze_dkim_records(_domain_statuses: list[DomainStatus]):
     _dkim_statuses = []
     _key_counts = defaultdict(int)
-
-    #todo RIVEDERE LOGICA ANNIDAMENTO DKIM
+    _key_domains = defaultdict(set)
 
     for _domain_status in _domain_statuses:
         _dicts = _domain_status.dns_entries.get_rrs_dkim()
@@ -19,7 +18,10 @@ def analyze_dkim_records(_domain_statuses: list[DomainStatus]):
             for _dict in _dicts:
                 for _domain, _rrs in _dict.items():
                     for _rr in _rrs:
-                        _key_counts[_rr.policy.publicKey] += 1
+                        pubkey = _rr.policy.publicKey
+                        if pubkey:
+                            _key_counts[pubkey] += 1
+                            _key_domains[pubkey].add(_domain_status.domain)
 
     for _domain_status in tqdm(_domain_statuses, desc="DKIM Analysis", ncols=100, position=1, leave=False):
         _dicts = _domain_status.dns_entries.get_rrs_dkim()
@@ -63,7 +65,12 @@ def analyze_dkim_records(_domain_statuses: list[DomainStatus]):
                         _policy_data['flags'] = _policy.flags
                         _policy_data['otherTerms'] = _policy.otherTerms
 
-                        _policy_data['keyUsageCount'] = _key_counts[_policy.publicKey]
+                        if _policy.publicKey:
+                            _policy_data['keyUsageCount'] = _key_counts[_policy.publicKey]
+                            _policy_data['domainUsageCount'] = len(_key_domains[_policy.publicKey])
+                        else:
+                            _policy_data['keyUsageCount'] = None
+                            _policy_data['domainUsageCount'] = None
 
                         _dkim_statuses.append(_policy_data)
 
