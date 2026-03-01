@@ -69,13 +69,13 @@ def get_domains_ita():
     _src['Sito_istituzionale'] = _src['Sito_istituzionale'].str.lower()
 
     _filter = (
-            (_src['Tipologia'] == 'Pubbliche Amministrazioni') &
-            (~_src['Sito_istituzionale'].str.contains(r'\.edu\.', na=False))            #todo LE SCUOLE VENGONO ESCLUSE
+            (_src['Tipologia'] == 'Pubbliche Amministrazioni')
     )
 
     _src = _src.loc[_filter, 'Sito_istituzionale'].tolist()
     _src = [_x for _x in _src if _x and pd.notna(_x)]
 
+    # I domini con .gov.it vengono duplicati anche nella versione senza .gov
     for _domain in _src:
         if '.gov.' in _domain:
             _domain_alt = _domain.replace('.gov', '')
