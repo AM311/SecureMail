@@ -1,6 +1,8 @@
 import fnmatch
 import re
 import ssl
+import subprocess
+import tempfile
 from datetime import datetime, timezone
 
 import certifi
@@ -179,23 +181,65 @@ class Certificate:
                                             _error = f"Invalid server response from {url}: HTML content"
                                             continue
 
+                                        pem_data = None
+
                                         if b"-----BEGIN CERTIFICATE-----" in response.content:
-                                            pem_data = response.content
+                                            pem_data = [response.content]
+                                        elif "pkcs7" in content_type or response.url.lower().endswith(
+                                                (".p7b", ".p7c")) or b"-----BEGIN PKCS7-----" in response.content:
+                                            with tempfile.NamedTemporaryFile(delete=False) as tmp_in, \
+                                                    tempfile.NamedTemporaryFile(delete=False) as tmp_out:
+                                                tmp_in.write(response.content)
+                                                tmp_in.flush()
+
+                                                # Rileva se è PEM o DER
+                                                inform = "PEM" if b"-----BEGIN" in response.content else "DER"
+
+                                                proc = subprocess.run(
+                                                    [
+                                                        "openssl", "pkcs7",
+                                                        "-inform", inform,
+                                                        "-in", tmp_in.name,
+                                                        "-print_certs",
+                                                        "-out", tmp_out.name,
+                                                    ],
+                                                    capture_output=True,
+                                                    text=True,
+                                                    check=False
+                                                )
+
+                                                if proc.returncode != 0:
+                                                    print(f"⚠️ openssl pkcs7 failed for {url}: {proc.stderr.strip()}")
+                                                    continue
+
+                                                tmp_out.seek(0)
+                                                pem_text = tmp_out.read().decode(errors="ignore")
+
+                                                # Estrai i certificati PEM dal testo
+                                                pem_list = [
+                                                    block.encode("utf-8")
+                                                    for block in pem_text.split("-----END CERTIFICATE-----")
+                                                    if "-----BEGIN CERTIFICATE-----" in block
+                                                ]
+                                                pem_data = [p + b"-----END CERTIFICATE-----\n" for p in pem_list]
                                         else:
                                             try:
-                                                pem_data = ssl.DER_cert_to_PEM_cert(response.content).encode("utf-8")
+                                                pem_data = [ssl.DER_cert_to_PEM_cert(response.content).encode("utf-8")]
                                             except Exception:
                                                 _error = f"Invalid certificate format retrieved from url {url}: {response.content}"
                                                 continue  # Invalid certificate format
 
-                                        try:
-                                            inter_cert = crypto.load_certificate(crypto.FILETYPE_PEM, pem_data)
-                                            intermediates.append(inter_cert)
-                                            # 🔁 Ricorsione: continua a risalire nella catena
-                                            intermediates += fetch_intermediates_recursive(inter_cert, visited_urls)
-                                        except Exception as e:
-                                            _error = f"Unable to load PEM certificate: {e}"
-                                            continue  # Non è un certificato valido
+                                        if pem_data:
+                                            for pem in (pem_data if isinstance(pem_data, list) else [pem_data]):
+                                                try:
+                                                    inter_cert = crypto.load_certificate(crypto.FILETYPE_PEM, pem)
+                                                    intermediates.append(inter_cert)
+                                                    # 🔁 Ricorsione: continua a risalire nella catena
+                                                    intermediates += fetch_intermediates_recursive(inter_cert,
+                                                                                                   visited_urls)
+                                                except Exception as e:
+                                                    print(f"Unable to load PEM certificate from {url}: {e}")
+                                                    continue
                                     else:
                                         _error = f"Unable to retrieve Intermediate Certificate from {url} -- response code: {response.status_code}"
                                         continue
@@ -205,7 +249,7 @@ class Certificate:
 
                     return intermediates
 
-                if _error is not None:          #todo FUNZIONA ???
+                if _error is not None:
                     return _error
 
                 _intermediates = fetch_intermediates_recursive(_leaf_cert)
