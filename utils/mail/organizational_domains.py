@@ -1,7 +1,11 @@
 import pandas as pd
+from pathlib import Path
+
+current_file = Path(__file__).resolve()
+root_dir = current_file.parents[2]
 
 _public_suffixes_src = pd.read_csv(
-    "data/public_suffixes_agg.csv", delimiter=';')
+    f"{root_dir }/data/public_suffixes_agg.csv", delimiter=';')
 _public_suffixes = _public_suffixes_src.iloc[:, 0].tolist()
 
 
