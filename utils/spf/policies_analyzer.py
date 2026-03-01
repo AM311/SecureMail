@@ -7,7 +7,6 @@ from classes.domain_status import DomainStatus
 
 
 def analyze_spf_policies(_domain_statuses: list[DomainStatus]):
-    policies_statuses = []
     _domain_counts = defaultdict(int)
 
     for _domain_status in _domain_statuses:
@@ -21,10 +20,10 @@ def analyze_spf_policies(_domain_statuses: list[DomainStatus]):
     # ---
 
     _res = pd.DataFrame(
-        columns=['Main Domain', 'Policy Domain', 'Level', 'Included/Redirected', 'Number of Usages','A','MX',
+        columns=['Main Domain', 'Policy Domain', 'Level', 'Included/Redirected', 'Number of Usages','IPv4','A','MX',
                  'MX_Servers','PTR','EXISTS','INCLUDE','REDIRECT','Policy Validation Error', 'Domain SPF Error'])
 
-    for _domain_status in tqdm(_domain_statuses, desc="SPF Policies Includes Analysis", ncols=100, position=1,
+    for _domain_status in tqdm(_domain_statuses, desc="SPF Policies Analysis", ncols=100, position=1,
                                leave=False):
         _spf_error = _domain_status.errorCode_spf
 
@@ -42,6 +41,11 @@ def analyze_spf_policies(_domain_statuses: list[DomainStatus]):
                     _local_policy = _red['policy']
 
                     analyze_policy(_level + 1, _local_policy.domain, _inc_red='Redirect')
+
+                # ---
+
+                _ipv4, _ = _policy.get_ips(_qualifier='+', _recursive=False)
+                _ipv4_count = {str(_ip) for _ip_net in _ipv4 for _ip in _ip_net['ip']}
 
                 # ---
 
@@ -77,6 +81,7 @@ def analyze_spf_policies(_domain_statuses: list[DomainStatus]):
                     'Level': _level,
                     'Included/Redirected': _inc_red,
                     'Number of Usages': _domain_counts[_policy_domain],
+                    'IPv4': len(_ipv4_count),
                     'A': _a_count,
                     'MX': _mx_count,
                     'MX_Servers': _mxs_count,
