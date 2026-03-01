@@ -71,9 +71,15 @@ class DKIMPolicy:
                     self.keyType = _value
                 elif _key == 'n':
                     if not re.match(
-                            r"^([!-/0-9A-Za-z?^_`a-zA-Z]|=[0-9A-Fa-f]{2})*(\t| )?([!-/0-9A-Za-z?^_`a-zA-Z]|=[0-9A-Fa-f]{2})$",
+                            r"^(?:(?:[ \t]*\r\n)+[ \t]+|[ \t]+)?(?:[!-<>-~]|=[0-9A-Fa-f]{2})*$",
                             _value):
                         return f"Invalid notes: {_value}"
+                    self.notes = _value
+                elif _key == 'g':
+                    if not re.match(
+                            r"^\s*(?:[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~]+(?:\.[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~]+)?)?(?:\*(?:[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~]+(?:\.[A-Za-z0-9!#$%&'*+\-/=?^_`{|}~]+)?)?)?$",
+                            _value):
+                        return f"Invalid granularity: {_value}"
                     self.notes = _value
                 elif _key == 'p':
                     if len(_value) == 0:
