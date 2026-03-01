@@ -12,11 +12,38 @@ from utils.mail.mail_parser import get_unique_domains
 from utils.spf.ips_analyzer import analyze_ips
 import concurrent.futures
 
+from utils.spf.policies_analyzer import analyze_spf_policies
+
 #_prefix = "C:/Users/aless/OneDrive/UniTS/IN20 - Prova Finale/TEST_WebScraping/"
 _prefix = ""
 
+
+def process_domain(_domain):
+    print(f"\r\nBEGIN: {_domain}\r\n")
+    _domain_status = DomainStatus(_domain)
+    _domain_status.analyze_domain()
+
+    _policies = {_domain: _domain_status.get_policies()}
+
+    print(f"\r\nEND: {_domain}\r\n")
+
+    _row = [[_domain, _domain_status.errorCode, _domain_status.use_spf, _domain_status.spf_policy_rule,
+             _domain_status.spf_policy_useInclude, _domain_status.spf_policy_useRedirect,
+             _domain_status.errorCode_spf, _domain_status.warningCode_spf_overlap,
+             _domain_status.warningCode_spf_subpolicies, _domain_status.use_dkim,
+             _domain_status.dkim_nPolicies, _domain_status.warningCode_dkim, _domain_status.errorCode_dkim,
+             _domain_status.use_dmarc,
+             _domain_status.dmarc_policy_rule, _domain_status.dmarc_policy_isCname,
+             _domain_status.errorCode_dmarc,
+             _domain_status.use_starttls, _domain_status.errorCode_starttls,
+             _domain_status.warningCode_starttls,
+             _domain_status.use_tlsrpt, _domain_status.errorCode_tlsrpt, _domain_status.use_mtasts,
+             _domain_status.mtasts_policy_rule, _domain_status.errorCode_mtasts, _domain_status.use_dnssec]]
+
+    return _row, _domain_status, _policies
+
 if __name__ == "__main__":
-    csv_file = f"{_prefix}data/src/DOMAINS_TEST2.csv"
+    csv_file = f"{_prefix}data./similarweb/USA.csv"
 
     _source = pd.read_csv(csv_file, delimiter=';', header=None)
 
@@ -35,35 +62,10 @@ if __name__ == "__main__":
     with tqdm(desc="PROGRESS", total=6, colour='blue', ncols=100, position=0) as total_progress:
         _res = pd.DataFrame(
             columns=['Domain', 'GeneralErrors', 'SPF Enabled', 'SPF Default Qualifier', 'SPF Use Include',
-                     'SPF Use Redirect', 'SPF Errors', 'SPF Warnings', 'DKIM Enabled', 'DKIM nPolicies', 'DKIM Warning',
-                     'DKIM Error', 'DMARC Enabled', 'DMARC Policy', 'DMARC is CNAME', 'DMARC Error',
-                     'STARTTLS Enabled', 'STARTTLS Error', 'STARTTLS Warning', 'TLS-RPT Enabled',
+                     'SPF Use Redirect', 'SPF Errors', 'SPF Overlaps Warning', 'SPF SubPolicies Warning', 'DKIM Enabled',
+                     'DKIM nPolicies', 'DKIM Warning', 'DKIM Error', 'DMARC Enabled', 'DMARC Policy', 'DMARC is CNAME',
+                     'DMARC Error', 'STARTTLS Enabled', 'STARTTLS Error', 'STARTTLS Warning', 'TLS-RPT Enabled',
                      'TLS-RPT Errors', 'MTA-STS Enabled', 'MTA-STS Mode', 'MTA-STS Errors', 'DNSSEC Enabled'])
-
-
-        def process_domain(_domain):
-            print(f"\r\nBEGIN: {_domain}\r\n")
-            _domain_status = DomainStatus(_domain)
-            _domain_status.analyze_domain()
-
-            _policies = {_domain: _domain_status.get_policies()}
-
-            print(f"\r\nEND: {_domain}\r\n")
-
-            _row = [[_domain, _domain_status.errorCode, _domain_status.use_spf, _domain_status.spf_policy_rule,
-                     _domain_status.spf_policy_useInclude, _domain_status.spf_policy_useRedirect,
-                     _domain_status.errorCode_spf, _domain_status.warningCode_spf, _domain_status.use_dkim,
-                     _domain_status.dkim_nPolicies, _domain_status.warningCode_dkim, _domain_status.errorCode_dkim,
-                     _domain_status.use_dmarc,
-                     _domain_status.dmarc_policy_rule, _domain_status.dmarc_policy_isCname,
-                     _domain_status.errorCode_dmarc,
-                     _domain_status.use_starttls, _domain_status.errorCode_starttls,
-                     _domain_status.warningCode_starttls,
-                     _domain_status.use_tlsrpt, _domain_status.errorCode_tlsrpt, _domain_status.use_mtasts,
-                     _domain_status.mtasts_policy_rule, _domain_status.errorCode_mtasts, _domain_status.use_dnssec]]
-
-            return _row, _domain_status, _policies
-
 
         _rows = []
 
@@ -104,10 +106,6 @@ if __name__ == "__main__":
         with open(f"{_prefix}data/OUT/Policies.json", "w") as file:
             json.dump(_policies, fp=file, indent=2)
 
-        total_progress.update()
-
-        # ---
-
         _domains_dns_rrs = []
 
         for _domain_status in _domain_statuses:
@@ -116,11 +114,6 @@ if __name__ == "__main__":
 
         with open(f"{_prefix}data/OUT/DNS.json", "w") as file:
             json.dump([_drrs.to_dict() for _drrs in _domains_dns_rrs], fp=file, indent=2)
-
-        _ip_counts = analyze_ips(_domain_statuses)
-
-        with open(f"{_prefix}data/OUT/IPs.json", "w") as file:
-            json.dump(_ip_counts, fp=file, indent=2)
 
         total_progress.update()
 
@@ -148,5 +141,22 @@ if __name__ == "__main__":
         _dkim_statuses = analyze_dkim_records(_domain_statuses)
 
         _dkim_statuses.to_csv(f"{_prefix}data/OUT/DKIM.csv", index=False)
+
+        total_progress.update()
+
+        # ---
+
+        _spf_statuses = analyze_spf_policies(_domain_statuses)
+
+        _spf_statuses.to_csv(f"{_prefix}data/OUT/SPF.csv", index=False)
+
+        total_progress.update()
+
+        # ---
+
+        _ip_counts = analyze_ips(_domain_statuses)
+
+        with open(f"{_prefix}data/OUT/IPs.json", "w") as file:
+            json.dump(_ip_counts, fp=file, indent=2)
 
         total_progress.update()

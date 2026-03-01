@@ -44,7 +44,8 @@ class DomainStatus:
         self.errorCode_dmarc = None
         self.errorCode_starttls = None
 
-        self.warningCode_spf = None
+        self.warningCode_spf_overlap = None
+        self.warningCode_spf_subpolicies = None
         self.warningCode_dkim = None
         self.warningCode_starttls = None
 
@@ -84,24 +85,22 @@ class DomainStatus:
                 self.use_mtasts = True
 
                 if self.dns_entries.get_rrs_mtasts(_mtasts_dns_domain).size() > 1:
-                    self.errorCode_mtasts = "Multiple MTA-STS RRs found"
+                    self.errorCode_mtasts = "RR Error: Multiple MTA-STS RRs found"
                     return
 
                 if self.dns_entries.get_rrs_mtasts(_mtasts_dns_domain).has_invalid_rr():
-                    self.errorCode_mtasts = f"Invalid MTA-STS RR: {self.dns_entries.get_rrs_mtasts(_mtasts_dns_domain).get(0).get_validation_error()}"
+                    self.errorCode_mtasts = f"RR Error: Invalid MTA-STS RR: {self.dns_entries.get_rrs_mtasts(_mtasts_dns_domain).get(0).get_validation_error()}"
                     return
 
                 if self.dns_entries.get_rrs_a(_mtasts_policy_domain).is_empty():
-                    self.errorCode_mtasts = f"No RR A retrieved for the MTA-STS policy subdomain: {self.dns_entries.get_rrs_mx().empty_cause}"
+                    self.errorCode_mtasts = f"HTTP Error (RR): No RR A retrieved for the MTA-STS policy subdomain: {self.dns_entries.get_rrs_a(_mtasts_policy_domain).empty_cause}"
                     return
 
-                # todo VOLENDO, VALORIZZARE FLAG PER SEGNALARE DIVERSI DOMINI
-
             except ValueError as e:
-                self.errorCode_mtasts = f"ValueError : {e}"
+                self.errorCode_mtasts = f"RR ValueError : {e}"
                 return
             except Exception as e:
-                self.errorCode_mtasts = f"Exception : {e}"
+                self.errorCode_mtasts = f"RR Exception : {e}"
                 return
 
             # --- HTTPS
@@ -110,31 +109,39 @@ class DomainStatus:
                 self.certificates.add_web_certificate(_status)
 
                 if not _status.is_reachable:
-                    self.errorCode_mtasts = f"Unable to contact MTA-STS web server: {_status.error}"
+                    self.errorCode_mtasts = f"HTTP Error (TCP): Unable to contact MTA-STS web server: {_status.error}"
                     return
 
                 if not _status.is_enabled:
-                    self.errorCode_mtasts = f"Unable to retrieve MTA-STS web server's certificate: {_status.error}"
+                    self.errorCode_mtasts = f"HTTP Error (TLS): Unable to retrieve MTA-STS web server's certificate: {_status.error}"
                     return
 
                 if not _status.certificate or _status.certificate.is_invalid(True):
-                    self.errorCode_mtasts = f"Invalid MTA-STS Web Server Certificate: {_status.certificate.get_validation_error()}"
+                    self.errorCode_mtasts = f"HTTP Error (TLS): Invalid MTA-STS Web Server Certificate: {_status.certificate.get_validation_error() if _status.certificate else "No certificate retrieved"}"
 
                 if not _policy:
-                    self.errorCode_mtasts = "Unable to retrieve MTA-STS Policy"
+                    self.errorCode_mtasts = f"HTTP Error (HTTP): Unable to retrieve MTA-STS Policy: {_status.error if _status.error else ""}"
                     return
 
                 self.mtasts_policy = MTASTS_Policy(_policy)
 
                 if self.mtasts_policy.is_invalid():
-                    self.errorCode_mtasts = f"Invalid MTA-STS policy: {self.mtasts_policy.get_validation_error()}"
+                    self.errorCode_mtasts = f"HTTP Error (Policy): Invalid MTA-STS policy: {self.mtasts_policy.get_validation_error()}"
                     return
 
             except ValueError as e:
-                self.errorCode_mtasts = f"ValueError : {e}"
+                if any(keyword in str(e) for keyword in ['SSL', 'TLS', 'certificate']):
+                    self.errorCode_mtasts = f"HTTP Error (TLS): ValueError: {e}"
+                else:
+                    self.errorCode_mtasts = f"HTTP Error (TCP): ValueError: {e}"
+
                 return
             except Exception as e:
-                self.errorCode_mtasts = f"Exception : {e}"
+                if any(keyword in str(e) for keyword in ['SSL', 'TLS', 'certificate']):
+                    self.errorCode_mtasts = f"HTTP Error (TLS): Exception: {e}"
+                else:
+                    self.errorCode_mtasts = f"HTTP Error (TCP): Exception: {e}"
+
                 return
 
             # --- Policy Type
@@ -208,12 +215,24 @@ class DomainStatus:
 
                 # ---
 
-                # todo VOLENDO, VALORIZZARE FLAG PER SEGNALARE DIVERSI DOMINI
-
-                # todo Vedere se implementato nel migliore dei modi (cfr) ...
                 if _policy.check_overlaps():
-                    self.warningCode_spf = f"SPF policy has overlapping IPs"
-                    return
+                    self.warningCode_spf_overlap = f"SPF policy has overlapping IPs"
+
+                # ---
+
+                if self.use_spf:
+                    dns_spf = self.dns_entries.get_rrs_spf()
+
+                    _incl = {k: v for k, v in dns_spf.items() if k != self.domain}
+
+                    _count = 0
+
+                    for _included_domain, _values in _incl.items():
+                        if _values.empty_cause:
+                            _count += 1
+
+                    if _count > 0:
+                        self.warningCode_spf_subpolicies = f"{_count} retrieving errors"
 
             except ValueError as e:
                 self.errorCode_spf = f"ValueError : {e}"
@@ -236,10 +255,10 @@ class DomainStatus:
 
                 self.dkim_nPolicies = len(self.dns_entries.get_rrs_dkim())
 
-                # todo RIVEDERE DA QUI -- Capire come validare --
-
                 _err = None
                 _status = False
+
+                _all_empty = True
 
                 for _dict in self.dns_entries.get_rrs_dkim():
                     for _domain, _rrs in _dict.items():
@@ -249,6 +268,10 @@ class DomainStatus:
 
                         if _rrs.has_invalid_rr():
                             _err = f"Invalid DKIM RR: {_rrs.get(0).get_validation_error()}"
+
+                            if _err != 'Empty public key':
+                                _all_empty = False
+
                             continue
 
                         _status = True
@@ -257,7 +280,10 @@ class DomainStatus:
                     if _status:
                         self.warningCode_dkim = f"Some DKIM policies have errors"
                     else:
-                        self.errorCode_dkim = f"All DKIM policies have errors"
+                        if _all_empty:
+                            self.errorCode_dkim = f"All DKIM policies have an empty public key"
+                        else:
+                            self.errorCode_dkim = f"All DKIM policies have errors"
 
                 # todo -- FINO A QUI --
 
@@ -550,8 +576,11 @@ class DomainStatus:
 
                 if self.errorCode_spf:
                     _str += f"\t\t❌ ERROR in SPF configuration: {self.errorCode_spf}\r\n"
-                elif self.warningCode_spf:
-                    _str += f"\t\t⚠️ WARNING in SPF configuration: {self.warningCode_spf}\r\n"
+                elif self.warningCode_spf_overlap or self.warningCode_spf_subpolicies:
+                    if self.warningCode_spf_overlap:
+                        _str += f"\t\t⚠️ WARNING in SPF configuration: {self.warningCode_spf_overlap}\r\n"
+                    if self.warningCode_spf_subpolicies:
+                        _str += f"\t\t⚠️ WARNING in SPF configuration: {self.warningCode_spf_subpolicies}\r\n"
                 else:
                     _str += f"\t\t✅ SPF correctly configured\r\n"
 
